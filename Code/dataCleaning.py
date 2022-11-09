@@ -1,8 +1,9 @@
 import pandas as pd
 import csv
+import os
 
 city_name = 'Philadelphia'
-data_path = '../Data/business.json'
+data_path = os.path.abspath('Data/business.json')
 
 data_df = pd.read_json(data_path, lines=True)
 data_df_cleaned = pd.DataFrame()
@@ -42,6 +43,6 @@ data_df_result = pd.concat([data_df_cleaned, data_df_withattr], axis=1)
 print(data_df_result)
 
 
-csv_path = "../Data/data_cleaned.csv"
+csv_path = os.path.abspath('Data/data_cleaned.csv')
 data_df_result.to_csv(csv_path, sep=',')
 
