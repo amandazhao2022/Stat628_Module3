@@ -5,10 +5,13 @@ This README is used to describe the Group6 - Module3 directory.
 Group members: Yujie Zhao, Jiacheng Yu, Jianwei Ren
 
 ## Data
-- 
+- This directory contains 
+  - Original dataset(business.json)
+  - Cleaned dataset
+  - Datasets created for ANOVA tests
 
-## Code
-- 
+## Data_clean_code
+- This directory contains codes to clean the data.
 
 ## Shiny App
 - [Link](https://amandadata2022.shinyapps.io/Group6/)
