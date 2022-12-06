@@ -1,0 +1,631 @@
+---
+title: "ANOVA"
+author: "Jiacheng"
+date: "2022-12-02"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(knitr)
+library(tidyverse)
+library(tsibble)
+library(lubridate)
+#library(sf)
+library(tmap)
+library(terra)
+library(ceramic)
+library(tsibble)
+library(tsibbledata)
+library(ggHoriPlot)
+library(ggstream)
+library(colorspace)
+library(ggalluvial)
+library(scales)
+```
+
+```{r}
+restau_all<-read.csv("/Users/yujiacheng/Desktop/Stat628_Module3/data_cleaned/data_asian_all.csv")
+restau_all
+city_group<-group_by(restau_all,city)
+city_group
+city_restau<-summarise(city_group,
+                      restau_count = n(),                   #A total of several restaurants
+                      review_max = max(review_count),       
+#The maximum number of restaurant evaluations in this city
+                      review_min = min(review_count),       #The minimum value of restaurant evaluations in this city
+                      review_avg = mean(review_count),      #The average number of evaluations of all restaurants in this city
+                      review_sum = sum(review_count))       #The total number of evaluations of all restaurants in this city
+city_restau_order<-arrange(city_restau,desc(review_sum))
+city_restau_order
+```
+```{r}
+filter_city<-c("Philadelphia","Southwest Philadelphia",
+               "Tampa","Tampa Bay","South Tampa",
+               "Reno",
+               "Tucson",
+               "Indianapolis",
+               "Nashville",
+               "New Orleans",
+               "Saint Louis","East Saint Louis","St Louis","St Louis County","St. Louis",
+               "Santa Barbara",
+               "Boise",
+               "Clearwater","Clearwater Beach",
+               "Metairie",
+               "Goleta",
+               "Cherry Hill",
+               "Pinellas Park",
+               "Brandon",
+               "Wilmington",
+               "Sparks",
+               "Saint Petersburg","St Petersburg","St. Petersburg",
+               "Riverview")
+restau_all%>%
+  filter(city %in% filter_city)%>%
+  group_by(city)%>%
+  summarise( restau_count = n(),                   
+                      review_max = max(review_count),     
+                      review_min = min(review_count),     
+                      review_avg = mean(review_count),      
+                      review_sum = sum(review_count)) 
+restau_all
+```
+
+```{r}
+restau_chinese<-read.csv("/Users/yujiacheng/Desktop/Stat628_Module3/data_cleaned/data_chinese.csv")
+filter_city<-c("Philadelphia","Southwest Philadelphia",
+               "Tampa","Tampa Bay","South Tampa",
+               "Reno",
+               "Tucson",
+               "Indianapolis",
+               "Nashville",
+               "New Orleans",
+               "Saint Louis","East Saint Louis","St Louis","St Louis County","St. Louis",
+               "Santa Barbara",
+               "Boise",
+               "Clearwater","Clearwater Beach",
+               "Metairie",
+               "Goleta",
+               "Cherry Hill",
+               "Saint Petersburg",
+               "Pinellas Park",
+               "Brandon",
+               "Wilmington",
+               "Sparks",
+               "Saint Petersburg","St Petersburg","St. Petersburg")
+restau_chinese%>%
+  filter(city %in% filter_city)%>%
+  group_by(city)%>%
+  summarise( restau_count = n(),              
+                      review_max = max(review_count),       
+                      review_min = min(review_count),       
+                      review_avg = mean(review_count),      
+                      review_sum = sum(review_count)) 
+restau_chinese
+```
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(reshape2) 
+library(ggsignif)
+library(gplots)
+```
+Boise
+```{r}
+#Look at the box plot, there is no difference in the mean, further analysis requires statistical methods
+#Although the number of various restaurants in different places varies greatly, what we want to compare is the avg_review of different restaurants in this area, so we used anova instead of sum of review.
+
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Boise_review = read.csv("Boise_review.csv", header = TRUE)
+df_Boise_review = melt(Boise_review)
+ggplot(df_Boise_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )      
+  )
+#Horizontal comparison of reviews of three different types of restaurants
+plot(df_Boise_review$variable~df_Boise_review$value)
+
+Boise_stars = read.csv("Boise_stars.csv", header = TRUE)
+df_Boise_stars = melt(Boise_stars)
+ggplot(df_Boise_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Boise_stars$variable~df_Boise_stars$value)
+```
+
+```{r}
+bartlett.test(value ~ variable,data=df_Boise_review)
+#p value less than 0.05 means rejecting the null hypothesis: the assumption that the variances of each group are equal, does not satisfy the variance homogeneity, and does not pass the variance homogeneity bartlett test, so Welch's ANOVA is used.
+#perform Welch's ANOVA
+df_Boise_review_aov <- oneway.test(value ~ variable,data=df_Boise_review, var.equal = FALSE)
+df_Boise_review_aov
+#p value 0.02045 is less than 0.05, which means rejecting the null hypothesis that the average number of reviews of the three types of restaurants in the Boise city is equal, indicating that the popularity of the three types of restaurants in the Boise city is inconsistent, so a more detailed pairwise comparison is needed.
+df_Boise_review_aov2<-aov(value ~ variable,data=df_Boise_review)
+TukeyHSD(df_Boise_review_aov2,conf.level=.95)
+#Only the p value of X3-X1 is 0.0246491<0.05, rejecting the null hypothesis of equality, indicating that the avg_review of Southeast Asian restaurants is significantly different from that of Chinese restaurants, but there is no difference between Southeast Asian and Japanese or Japanese and Chinese restaurants. Indicates that China is lower and Southeast Asia is higher.
+
+bartlett.test(value ~ variable,data=df_Boise_stars)
+#p value greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_Boise_stars_aov <- oneway.test(value ~ variable,data=df_Boise_stars, var.equal = TRUE)
+df_Boise_stars_aov
+#p value 1.132e-05 is less than 0.05, which means rejecting the null hypothesis that the ratings of the three types of restaurants in Boise city are equal, indicating that the evaluation levels of the three types of restaurants in Boise city are inconsistent, so further more detailed pairwise comparisons are needed .
+df_Boise_stars_aov2<-aov(value ~ variable,data=df_Boise_stars)
+TukeyHSD(df_Boise_stars_aov2,conf.level=.95)
+#The p values of X2-X1 and X3-X1 are both small, indicating that the scores of Chinese restaurants in Boise city are significantly lower than those of the other two types of restaurants, while there is no significant difference in the scores of Japanese restaurants and Southeast Asian restaurants in Boise city.
+```
+Brandon
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Brandon_review = read.csv("Brandon_review.csv", header = TRUE)
+df_Brandon_review = melt(Brandon_review)
+ggplot(df_Brandon_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+
+plot(df_Brandon_review$variable~df_Brandon_review$value)
+
+Brandon_stars = read.csv("Brandon_stars.csv", header = TRUE)
+df_Brandon_stars = melt(Brandon_stars)
+ggplot(df_Brandon_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Brandon_stars$variable~df_Brandon_stars$value)
+```
+
+```{r}
+bartlett.test(value ~ variable,data=df_Brandon_review)
+#p value greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_Brandon_review_aov <- oneway.test(value ~ variable,data=df_Brandon_review, var.equal = TRUE)
+df_Brandon_review_aov
+#p value 0.3102 is greater than 0.05, which means accepting the null hypothesis that the average number of reviews of the three types of restaurants in the city of Brandon is equal, indicating that the popularity of the three types of restaurants in the city of Brandon is almost the same, and there is no need for further detailed pairwise comparisons.
+
+bartlett.test(value ~ variable,data=df_Brandon_stars)
+#p value greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_Brandon_stars_aov <- oneway.test(value ~ variable,data=df_Brandon_stars, var.equal = TRUE)
+df_Brandon_stars_aov
+#p value 3.291e-05 is less than 0.05, which means rejecting the null hypothesis that the scores of the three types of restaurants in the city of Brandon are equal, indicating that the evaluation levels of the three types of restaurants in the city of Brandon are inconsistent, so more detailed pairwise comparisons are needed .
+df_Brandon_stars_aov2<-aov(value ~ variable,data=df_Brandon_stars)
+TukeyHSD(df_Brandon_stars_aov2,conf.level=.95)
+#The p values of X2-X1 and X3-X1 are both small, indicating that the scores of Chinese restaurants in Brandon are significantly lower than those of the other two types of restaurants, while there is no significant difference in the scores of Japanese restaurants and Southeast Asian restaurants in Brandon.
+```
+Cherry
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Cherry_review = read.csv("Cherry_review.csv", header = TRUE)
+df_Cherry_review = melt(Cherry_review)
+ggplot(df_Cherry_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                         
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )      
+  )
+
+plot(df_Cherry_review$variable~df_Cherry_review$value)
+
+Cherry_stars = read.csv("Cherry_stars.csv", header = TRUE)
+df_Cherry_stars = melt(Cherry_stars)
+ggplot(df_Cherry_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Cherry_stars$variable~df_Cherry_stars$value)
+```
+```{r}
+bartlett.test(value ~ variable,data=df_Cherry_review)
+#p value 0.1078 greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_Cherry_review_aov <- oneway.test(value ~ variable,data=df_Cherry_review, var.equal = TRUE)
+df_Cherry_review_aov
+#p value 0.1294 is greater than 0.05, which means accepting the null hypothesis that the average number of reviews of the three types of restaurants in the city of Cherry is equal, indicating that the popularity of the three types of restaurants in the city of Cherry is almost the same, and there is no need for further detailed pairwise comparisons.
+
+bartlett.test(value ~ variable,data=df_Cherry_stars)
+#p值0.1956大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Cherry_stars_aov <- oneway.test(value ~ variable,data=df_Cherry_stars, var.equal = TRUE)
+df_Cherry_stars_aov
+#p value 0.01379 is less than 0.05, which means rejecting the null hypothesis that the ratings of the three types of restaurants in Cherry city are equal, indicating that the ratings of the three types of restaurants in Cherry city are inconsistent, so further more detailed pairwise comparisons are needed.
+df_Cherry_stars_aov2<-aov(value ~ variable,data=df_Cherry_stars)
+TukeyHSD(df_Cherry_stars_aov2,conf.level=.95)
+#The p values of X2-X1 and X3-X1 are both less than 0.05, indicating that the scores of Chinese restaurants in Cherry city are significantly lower than those of the other two types of restaurants, while there is no significant difference in the scores of Japanese restaurants and Southeast Asian restaurants in Cherry city.
+```
+Clearwater
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Clearwater_review = read.csv("Clearwater_review.csv", header = TRUE)
+df_Clearwater_review = melt(Clearwater_review)
+ggplot(df_Clearwater_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+
+plot(df_Clearwater_review$variable~df_Clearwater_review$value)
+
+Clearwater_stars = read.csv("Clearwater_stars.csv", header = TRUE)
+df_Clearwater_stars = melt(Clearwater_stars)
+ggplot(df_Clearwater_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Clearwater_stars$variable~df_Clearwater_stars$value)
+```
+
+```{r}
+bartlett.test(value ~ variable,data=df_Clearwater_review)
+#p value 0.5476 greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_Clearwater_review_aov <- oneway.test(value ~ variable,data=df_Clearwater_review, var.equal = TRUE)
+df_Clearwater_review_aov
+#p value 0.4637 is greater than 0.05, which means accepting the null hypothesis that the average number of reviews of the three types of restaurants in the Clearwater city is equal, indicating that the popularity of the three types of restaurants in the Clearwater city is almost the same, and there is no need for further detailed pairwise comparisons.
+
+bartlett.test(value ~ variable,data=df_Clearwater_stars)
+#p value 0.1991 greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_Clearwater_stars_aov <- oneway.test(value ~ variable,data=df_Clearwater_stars, var.equal = TRUE)
+df_Clearwater_stars_aov
+#p value 0.000108 is less than 0.05, which means rejecting the null hypothesis that the scores of the three types of restaurants in the Clearwater city are equal, indicating that the ratings of the three types of restaurants in the Clearwater city are inconsistent, so further more detailed pairwise comparisons are needed.
+df_Clearwater_stars_aov2<-aov(value ~ variable,data=df_Clearwater_stars)
+TukeyHSD(df_Clearwater_stars_aov2,conf.level=.95)
+#The p values of X3-X2 and X3-X1 are both small, indicating that the scores of Southeast Asian restaurants in Clearwater are significantly higher than those of the other two types of restaurants, while there is no significant difference in the scores of Japanese restaurants and Chinese restaurants in Clearwater.
+```
+Goleta
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Goleta_review = read.csv("Goleta_review.csv", header = TRUE)
+df_Goleta_review = melt(Goleta_review)
+ggplot(df_Goleta_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+
+plot(df_Goleta_review$variable~df_Goleta_review$value)
+
+Goleta_stars = read.csv("Goleta_stars.csv", header = TRUE)
+df_Goleta_stars = melt(Goleta_stars)
+ggplot(df_Goleta_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Goleta_stars$variable~df_Goleta_stars$value)
+```
+Goleta
+```{r}
+bartlett.test(value ~ variable,data=df_Goleta_review)
+#p value 0.2319 greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_Goleta_review_aov <- oneway.test(value ~ variable,data=df_Goleta_review, var.equal = TRUE)
+df_Goleta_review_aov
+#p value 0.2408 is greater than 0.05, which means accepting the null hypothesis that the average number of reviews of the three types of restaurants in the Goleta city is equal, indicating that the popularity of the three types of restaurants in the Goleta city is almost the same, and there is no need for further detailed pairwise comparisons.
+
+bartlett.test(value ~ variable,data=df_Goleta_stars)
+#p value 0.09027 greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_Goleta_stars_aov <- oneway.test(value ~ variable,data=df_Goleta_stars, var.equal = TRUE)
+df_Goleta_stars_aov
+#p value 0.9411 is greater than 0.05, which means accepting the null hypothesis that the ratings of the three types of restaurants in the Goleta city are equal, indicating that the ratings of the three types of restaurants in the Goleta city are consistent, so there is no need for further detailed pairwise comparisons.
+```
+Louis
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Louis_review = read.csv("Louis_review.csv", header = TRUE)
+df_Louis_review = melt(Louis_review)
+ggplot(df_Louis_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+
+plot(df_Louis_review$variable~df_Louis_review$value)
+
+Louis_stars = read.csv("Louis_stars.csv", header = TRUE)
+df_Louis_stars = melt(Louis_stars)
+ggplot(df_Louis_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Louis_stars$variable~df_Louis_stars$value)
+```
+
+Louis
+```{r}
+bartlett.test(value ~ variable,data=df_Louis_review)
+#p value 4.251e-08 is less than 0.05, which means rejecting the null hypothesis: the assumption that the variances of each group are equal, does not satisfy the variance homogeneity, and does not pass the variance homogeneity bartlett test, so Welch's ANOVA is used.
+#perform Welch's ANOVA
+df_Louis_review_aov <- oneway.test(value ~ variable,data=df_Louis_review, var.equal = FALSE)
+df_Louis_review_aov
+#p value 0.0008179 is less than 0.05, which means rejecting the null hypothesis that the average number of reviews of the three types of restaurants in the city of Louis is equal, indicating that the popularity of the three types of restaurants in the city of Louis is inconsistent, so further more detailed pairwise comparisons are needed.
+df_Louis_review_aov2<-aov(value ~ variable,data=df_Louis_review)
+TukeyHSD(df_Louis_review_aov2,conf.level=.95)
+The p-value of #X2-X1 is 0.0221422<0.05, and the p-value of X3-X1 is 0.0221422<0.05, both of which reject the null hypothesis of equality, indicating that the avg_review of Chinese restaurants is significantly different from the other two types of restaurants, while the other two types of restaurants are Japanese restaurants It is no different from Southeast Asian restaurants. It shows that the Chinese restaurant avg_review is the least and least popular.
+
+bartlett.test(value ~ variable,data=df_Louis_stars)
+#p value 0.6968 greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_Louis_stars_aov <- oneway.test(value ~ variable,data=df_Louis_stars, var.equal = TRUE)
+df_Louis_stars_aov
+#p value 2.021e-05 is less than 0.05, which means rejecting the null hypothesis that the ratings of the three types of restaurants in the city of Louis are equal, indicating that the evaluation levels of the three types of restaurants in the city of Louis are inconsistent, so further more detailed pairwise comparisons are needed .
+df_Louis_stars_aov2<-aov(value ~ variable,data=df_Louis_stars)
+TukeyHSD(df_Louis_stars_aov2,conf.level=.95)
+#The p values of X2-X1 and X3-X1 are both small, indicating that the scores of Chinese restaurants in Louis City are significantly lower than those of the other two types of restaurants, while there is no significant difference in the scores of Japanese restaurants and Southeast Asian restaurants in Louis City
+```
+Indianapolis
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Indianapolis_review = read.csv("Indianapolis_review.csv", header = TRUE)
+df_Indianapolis_review = melt(Indianapolis_review)
+ggplot(df_Indianapolis_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,            
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+
+plot(df_Indianapolis_review$variable~df_Indianapolis_review$value)
+
+Indianapolis_stars = read.csv("Indianapolis_stars.csv", header = TRUE)
+df_Indianapolis_stars = melt(Indianapolis_stars)
+ggplot(df_Indianapolis_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Indianapolis_stars$variable~df_Indianapolis_stars$value)
+```
+
+Indianapolis
+```{r}
+bartlett.test(value ~ variable,data=df_Indianapolis_review)
+#p-value < 2.2e-16 less than 0.05 means rejecting the null hypothesis: the assumption that the variances of each group are equal, does not satisfy the variance homogeneity, and does not pass the variance homogeneity bartlett test, so Welch's ANOVA is used.
+#perform Welch's ANOVA
+df_Indianapolis_review_aov <- oneway.test(value ~ variable,data=df_Indianapolis_review, var.equal = FALSE)
+df_Indianapolis_review_aov
+#p value 3.883e-09 is less than 0.05, which means rejecting the null hypothesis that the average number of reviews of the three types of restaurants in Indianapolis is equal, indicating that the popularity of the three types of restaurants in Indianapolis is inconsistent, so further detailed two Compare the two.
+df_Indianapolis_review_aov2<-aov(value ~ variable,data=df_Indianapolis_review)
+TukeyHSD(df_Indianapolis_review_aov2,conf.level=.95)
+#The p-value of X2-X1 is 0.0000000<0.05, and the p-value of X3-X1 is 0.0000001<0.05, both of which reject the null hypothesis of equality, indicating that the avg_review of Chinese restaurants is significantly different from the other two types of restaurants, while the other two types of restaurants are Japanese restaurants It is no different from Southeast Asian restaurants. Explain that the Chinese restaurant avg_review is the least and least popular
+
+bartlett.test(value ~ variable,data=df_Indianapolis_stars)
+#p value 0.3504 greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_Indianapolis_stars_aov <- oneway.test(value ~ variable,data=df_Indianapolis_stars, var.equal = TRUE)
+df_Indianapolis_stars_aov
+#p value 4.734e-07 is less than 0.05, which means rejecting the null hypothesis that the ratings of the three types of restaurants in the city of Indianapolis are equal, indicating that the ratings of the three types of restaurants in the city of Indianapolis are inconsistent, so further detailed pairwise comparisons are needed .
+df_Indianapolis_stars_aov2<-aov(value ~ variable,data=df_Indianapolis_stars)
+TukeyHSD(df_Indianapolis_stars_aov2,conf.level=.95)
+#The p values of X2-X1 and X3-X1 are both small, indicating that the scores of Chinese restaurants in Indianapolis are significantly lower than those of the other two types of restaurants, while there is no significant difference in the scores of Japanese restaurants and Southeast Asian restaurants in Indianapolis.
+```
+Metairie
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Metairie_review = read.csv("Metairie_review.csv", header = TRUE)
+df_Metairie_review = melt(Metairie_review)
+ggplot(df_Metairie_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+
+plot(df_Metairie_review$variable~df_Metairie_review$value)
+
+Metairie_stars = read.csv("Metairie_stars.csv", header = TRUE)
+df_Metairie_stars = melt(Metairie_stars)
+ggplot(df_Metairie_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Metairie_stars$variable~df_Metairie_stars$value)
+```
+Metairie
+```{r}
+bartlett.test(value ~ variable,data=df_Metairie_review)
+#p-value8.371e-06 is less than 0.05, which means rejecting the null hypothesis: the assumption that the variances of each group are equal, does not satisfy the variance homogeneity, and does not pass the variance homogeneity bartlett test, so Welch's ANOVA is used.
+#perform Welch's ANOVA
+df_Metairie_review_aov <- oneway.test(value ~ variable,data=df_Metairie_review, var.equal = FALSE)
+df_Metairie_review_aov
+#p value 0.0007443 is less than 0.05, which means rejecting the null hypothesis that the average number of reviews of the three types of restaurants in the Metairie city is equal, indicating that the popularity of the three types of restaurants in the Metairie city is inconsistent, so more detailed pairwise comparisons are needed.
+df_Metairie_review_aov2<-aov(value ~ variable,data=df_Metairie_review)
+TukeyHSD(df_Metairie_review_aov2,conf.level=.95)
+#Only the p value of X3-X1 is 0.0002652<0.05, rejecting the null hypothesis of equality, indicating that only the avg_review of Chinese restaurants is significantly different from that of Southeast Asian restaurants, but there is no difference between Southeast Asian and Japanese or Chinese and Japanese restaurants. It shows that there are fewer Chinese restaurants and more Southeast Asian restaurants.
+
+bartlett.test(value ~ variable,data=df_Metairie_stars)
+#p value 0.05335 greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_Metairie_stars_aov <- oneway.test(value ~ variable,data=df_Metairie_stars, var.equal = TRUE)
+df_Metairie_stars_aov
+#p value 2.551e-05 is less than 0.05, which means rejecting the null hypothesis that the ratings of the three types of restaurants in the Metairie city are equal, indicating that the ratings of the three types of restaurants in the Metairie city are inconsistent, so further detailed pairwise comparisons are needed .
+df_Metairie_stars_aov2<-aov(value ~ variable,data=df_Metairie_stars)
+TukeyHSD(df_Metairie_stars_aov2,conf.level=.95)
+#The p-values of X2-X1 and X3-X1 are both small, indicating that the scores of Chinese restaurants in Metairie cities are significantly lower than those of the other two types of restaurants, while there is no significant difference in the scores of Japanese restaurants and Southeast Asian restaurants in Metairie cities.
+```
+Nashville
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Nashville_review = read.csv("Nashville_review.csv", header = TRUE)
+df_Nashville_review = melt(Nashville_review)
+ggplot(df_Nashville_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                         
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+
+plot(df_Nashville_review$variable~df_Nashville_review$value)
+
+Nashville_stars = read.csv("Nashville_stars.csv", header = TRUE)
+df_Nashville_stars = melt(Nashville_stars)
+ggplot(df_Nashville_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Nashville_stars$variable~df_Nashville_stars$value)
+```
+Nashville
+```{r}
+bartlett.test(value ~ variable,data=df_Nashville_review)
+#p-value0.03143 less than 0.05 means rejecting the null hypothesis: the assumption that the variances of each group are equal, does not satisfy the variance homogeneity, and does not pass the variance homogeneity bartlett test, so Welch's ANOVA is used.
+#perform Welch's ANOVA
+df_Nashville_review_aov <- oneway.test(value ~ variable,data=df_Nashville_review, var.equal = FALSE)
+df_Nashville_review_aov
+#p value 0.004155 is less than 0.05, which means rejecting the null hypothesis that the average number of reviews of the three types of restaurants in Nashville is equal, indicating that the popularity of the three types of restaurants in Nashville is inconsistent, so further more detailed pairwise comparisons are needed.
+df_Nashville_review_aov2<-aov(value ~ variable,data=df_Nashville_review)
+TukeyHSD(df_Nashville_review_aov2,conf.level=.95)
+#Only the p value of X3-X1 is 0.0076031<0.05, rejecting the null hypothesis of equality, indicating that only the avg_review of Chinese restaurants is significantly different from that of Southeast Asian restaurants, but there is no difference between Southeast Asian and Japanese or Chinese and Japanese restaurants. It shows that there are fewer Chinese restaurants and more Southeast Asian restaurants.
+
+bartlett.test(value ~ variable,data=df_Nashville_stars)
+#p-value0.01217 is less than 0.05, which means rejecting the null hypothesis: the assumption that the variances of each group are equal, does not satisfy the variance homogeneity, and does not pass the variance homogeneity bartlett test, so Welch's ANOVA is used.
+#perform Welch's ANOVA
+df_Nashville_stars_aov <- oneway.test(value ~ variable,data=df_Nashville_stars, var.equal = FALSE)
+df_Nashville_stars_aov
+#p value 1.757e-07 is less than 0.05, which means rejecting the null hypothesis that the ratings of the three types of restaurants in the city of Nashville are equal, indicating that the ratings of the three types of restaurants in the city of Nashville are inconsistent, so further detailed pairwise comparisons are needed .
+df_Nashville_stars_aov2<-aov(value ~ variable,data=df_Nashville_stars)
+TukeyHSD(df_Nashville_stars_aov2,conf.level=.95)
+The p values of #X2-X1 and X3-X1 are both small, indicating that the scores of Chinese restaurants in Nashville are significantly lower than those of the other two types of restaurants, while there is no significant difference in the scores of Japanese restaurants and Southeast Asian restaurants in Nashville.
+```
+
+New
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+New_review = read.csv("New_review.csv", header = TRUE)
+df_New_review = melt(New_review)
+ggplot(df_New_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,             
+               outlier.color = "black" 
+               )+
+  theme_bw()+                        
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+#Horizontal comparison of reviews of three different types of restaurants
+plot(df_New_review$variable~df_New_review$value)
+
+New_stars = read.csv("New_stars.csv", header = TRUE)
+df_New_stars = melt(New_stars)
+ggplot(df_New_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_New_stars$variable~df_New_stars$value)
+```
+
+New
+```{r}
+bartlett.test(value ~ variable,data=df_New_review)
+#p-value0.0003631 less than 0.05 means rejecting the null hypothesis: the assumption that the variances of each group are equal does not satisfy the variance homogeneity, and does not pass the variance homogeneity bartlett test, so Welch's ANOVA is used.
+#perform Welch's ANOVA
+df_New_review_aov <- oneway.test(value ~ variable,data=df_New_review, var.equal = FALSE)
+df_New_review_aov
+#p value 0.0004998 is less than 0.05, which means rejecting the null hypothesis that the average number of reviews of the three types of restaurants in the New city is equal, indicating that the popularity of the three types of restaurants in the New city is inconsistent, so further detailed pairwise comparisons are needed.
+df_New_review_aov2<-aov(value ~ variable,data=df_New_review)
+TukeyHSD(df_New_review_aov2,conf.level=.95)
+#Only the p value of X2-X1 is 0.0033407<0.05, rejecting the null hypothesis of equality, indicating that only the avg_review of Chinese restaurants is significantly different from that of Japanese restaurants, but there is no difference between Southeast Asian and Japanese or Chinese and Southeast Asian restaurants. It shows that there are fewer Chinese restaurants and more Japanese restaurants.
+
+bartlett.test(value ~ variable,data=df_New_stars)
+#p value 0.4592 greater than 0.05 means accepting the null hypothesis: the assumption that the variances of each group are equal, the variance homogeneity is satisfied, and the variance homogeneity bartlett test is passed, so one way student ANOVA is used.
+df_New_stars_aov <- oneway.test(value ~ variable,data=df_New_stars, var.equal = TRUE)
+df_New_stars_aov
+#p value 5.968e-05 is less than 0.05, which means rejecting the null hypothesis that the ratings of the three types of restaurants in the New city are equal, indicating that the ratings of the three types of restaurants in the New city are inconsistent, so further more detailed pairwise comparisons are needed .
+df_New_stars_aov2<-aov(value ~ variable,data=df_New_stars)
+TukeyHSD(df_New_stars_aov2,conf.level=.95)
+The p values of #X2-X1 and X3-X1 are both small, indicating that the scores of Chinese restaurants in New cities are significantly lower than those of the other two types of restaurants, while there is no significant difference in the scores of Japanese restaurants and Southeast Asian restaurants in New cities.
+```
