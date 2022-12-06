@@ -72,8 +72,10 @@ server <- function(input, output, session) {
   
   map_proxy <- leafletProxy("map")
   observeEvent(input$city_confirm, {
-    output$text_city <- renderText({ paste('For',input$City_selection) })
-    
+    output$text_rec <- renderText({ paste('Our Recommendation for ',input$City_selection) })
+    output$stat <- renderText({ 'Statistical Analysis: ' })
+    #output$text_city <- renderText({ paste('For',input$City_selection) })
+    output$text_city_top <- renderText({ us_cities[us_cities$name == input$City_selection,]$top_rec })
     output$text_city_review <- renderText({ us_cities[us_cities$name == input$City_selection,]$review_rec })
     output$text_city_stars <- renderText({ us_cities[us_cities$name == input$City_selection,]$stars_rec })
     output$distPlot <- renderPlot({

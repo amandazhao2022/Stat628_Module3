@@ -91,13 +91,14 @@ ui <- fluidPage(
         
       ),
       tabPanel("Recommendation",icon = icon("regular fa-thumbs-up"),
-               h2("Our Recommendation",style = 'font-weight: bold;'),
-               h2(textOutput('text_city'),style = 'color:#fcbf49; font-weight: bold;'),
+               h2(textOutput('text_rec'),style = 'font-weight: bold;'),
+               h2(textOutput('text_city_top'),style = 'color:#fcbf49; font-weight: bold;'),
                h1(),
+               h4(textOutput('text_city_stars'),style = 'color:#fcbf49; line-height: 1.5;'),
+               h1(" "),
+               h1(" "),
+               h3(textOutput('stat')),
                h4(textOutput('text_city_review'),style = 'line-height: 1.5;'),
-               h1(),
-               
-               h4(textOutput('text_city_stars'),style = 'line-height: 1.5;'),
                #fluidRow(column(width = 4, wellPanel("Average review count: ")),column(width = 4, wellPanel("Average rating: "))),
                leafletOutput("map_Recommendation", width = "800px",height = "400px")
                ),
