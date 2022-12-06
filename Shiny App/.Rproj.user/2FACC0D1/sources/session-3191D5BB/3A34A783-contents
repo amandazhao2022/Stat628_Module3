@@ -1,0 +1,628 @@
+---
+title: "ANOVA"
+author: "Jiacheng"
+date: "2022-12-02"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(knitr)
+library(tidyverse)
+library(tsibble)
+library(lubridate)
+#library(sf)
+library(tmap)
+library(terra)
+library(ceramic)
+library(tsibble)
+library(tsibbledata)
+library(ggHoriPlot)
+library(ggstream)
+library(colorspace)
+library(ggalluvial)
+library(scales)
+```
+
+```{r}
+restau_all<-read.csv("/Users/yujiacheng/Desktop/Stat628_Module3/data_cleaned/data_asian_all.csv")
+restau_all
+city_group<-group_by(restau_all,city)
+city_group
+city_restau<-summarise(city_group,
+                      restau_count = n(),                   #一共几家餐厅
+                      review_max = max(review_count),       #这个城市中餐厅评价数的最大值
+                      review_min = min(review_count),       #这个城市中餐厅评价数的最小值
+                      review_avg = mean(review_count),      #这个城市所有餐厅的评价数平均
+                      review_sum = sum(review_count))       #这个城市所有餐厅的评价数总和
+city_restau_order<-arrange(city_restau,desc(review_sum))
+city_restau_order
+```
+```{r}
+filter_city<-c("Philadelphia","Southwest Philadelphia",
+               "Tampa","Tampa Bay","South Tampa",
+               "Reno",
+               "Tucson",
+               "Indianapolis",
+               "Nashville",
+               "New Orleans",
+               "Saint Louis","East Saint Louis","St Louis","St Louis County","St. Louis",
+               "Santa Barbara",
+               "Boise",
+               "Clearwater","Clearwater Beach",
+               "Metairie",
+               "Goleta",
+               "Cherry Hill",
+               "Pinellas Park",
+               "Brandon",
+               "Wilmington",
+               "Sparks",
+               "Saint Petersburg","St Petersburg","St. Petersburg",
+               "Riverview")
+restau_all%>%
+  filter(city %in% filter_city)%>%
+  group_by(city)%>%
+  summarise( restau_count = n(),                   #一共几家餐厅
+                      review_max = max(review_count),       #这个城市中餐厅评价数的最大值
+                      review_min = min(review_count),       #这个城市中餐厅评价数的最小值
+                      review_avg = mean(review_count),      #这个城市所有餐厅的评价数平均
+                      review_sum = sum(review_count)) 
+restau_all
+```
+
+```{r}
+restau_chinese<-read.csv("/Users/yujiacheng/Desktop/Stat628_Module3/data_cleaned/data_chinese.csv")
+filter_city<-c("Philadelphia","Southwest Philadelphia",
+               "Tampa","Tampa Bay","South Tampa",
+               "Reno",
+               "Tucson",
+               "Indianapolis",
+               "Nashville",
+               "New Orleans",
+               "Saint Louis","East Saint Louis","St Louis","St Louis County","St. Louis",
+               "Santa Barbara",
+               "Boise",
+               "Clearwater","Clearwater Beach",
+               "Metairie",
+               "Goleta",
+               "Cherry Hill",
+               "Saint Petersburg",
+               "Pinellas Park",
+               "Brandon",
+               "Wilmington",
+               "Sparks",
+               "Saint Petersburg","St Petersburg","St. Petersburg")
+restau_chinese%>%
+  filter(city %in% filter_city)%>%
+  group_by(city)%>%
+  summarise( restau_count = n(),                   #一共几家餐厅
+                      review_max = max(review_count),       #这个城市中餐厅评价数的最大值
+                      review_min = min(review_count),       #这个城市中餐厅评价数的最小值
+                      review_avg = mean(review_count),      #这个城市所有餐厅的评价数平均
+                      review_sum = sum(review_count)) 
+restau_chinese
+```
+```{r}
+library(ggplot2)
+library(tidyr)
+library(reshape2) 
+library(ggsignif)
+library(gplots)
+```
+Boise
+```{r}
+#看箱线图，均值没有区别，进一步分析需要统计方法
+#虽然不同的地方的各种种类的餐厅数量差距较大，但是我们想要比较的是这个地区的不同种类餐厅的avg_review，所以我们用了anova，没有用sum of review。
+
+setwd("/Users/amanda/Desktop/FALL 2022/STAT 628/testing/ANOVA_city")
+Boise_review = read.csv("Boise_review.csv", header = TRUE)
+df_Boise_review = melt(Boise_review)
+ggplot(df_Boise_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              # 透明度
+               outlier.color = "black" # 外点颜色
+               )+
+  theme_bw()+                          # 白色主题
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       # x轴刻度改为倾斜90度，防止名称重叠
+  )
+#三个不同种类的餐厅的review横向比较
+plot(df_Boise_review$variable~df_Boise_review$value)
+
+Boise_stars = read.csv("Boise_stars.csv", header = TRUE)
+df_Boise_stars = melt(Boise_stars)
+ggplot(df_Boise_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Boise_stars$variable~df_Boise_stars$value)
+```
+
+```{r}
+bartlett.test(value ~ variable,data=df_Boise_review)
+#p值小于0.05表示拒绝原假设：各组方差相等的假设，不满足方差齐性，没有通过方差齐性bartlett test，所以用Welch's ANOVA。
+#perform Welch's ANOVA
+df_Boise_review_aov <- oneway.test(value ~ variable,data=df_Boise_review, var.equal = FALSE)
+df_Boise_review_aov
+#p值0.02045小于0.05，表示拒绝Boise城市中三种种类餐厅的平均评论数相等的原假设，说明Boise城市中三种种类餐厅的受欢迎程度不一致，所以需要进一步做更详细的两两比较。
+df_Boise_review_aov2<-aov(value ~ variable,data=df_Boise_review)
+TukeyHSD(df_Boise_review_aov2,conf.level=.95)
+#只有X3-X1的p值0.0246491<0.05,拒绝相等原假设，表示东南亚餐厅的avg_review和中国餐厅的显著不一样，但是东南亚和日本或者日本和中国餐厅没有区别。表明中国较低，东南亚较高。
+
+bartlett.test(value ~ variable,data=df_Boise_stars)
+#p值大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Boise_stars_aov <- oneway.test(value ~ variable,data=df_Boise_stars, var.equal = TRUE)
+df_Boise_stars_aov
+#p值1.132e-05小于0.05，表示拒绝Boise城市中三种种类餐厅的打分情况相等的原假设，说明Boise城市中三种种类餐厅的评价程度不一致，所以需要进一步做更详细的两两比较。
+df_Boise_stars_aov2<-aov(value ~ variable,data=df_Boise_stars)
+TukeyHSD(df_Boise_stars_aov2,conf.level=.95)
+#X2-X1和X3-X1的p值都很小，表明Boise城市中中餐厅的评分显著比其他两类餐厅都低,而Boise城市中的日餐餐厅和东南亚餐厅评分无明显差异。
+```
+Brandon
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Brandon_review = read.csv("Brandon_review.csv", header = TRUE)
+df_Brandon_review = melt(Brandon_review)
+ggplot(df_Brandon_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              # 透明度
+               outlier.color = "black" # 外点颜色
+               )+
+  theme_bw()+                          # 白色主题
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       # x轴刻度改为倾斜90度，防止名称重叠
+  )
+#三个不同种类的餐厅的review横向比较
+plot(df_Brandon_review$variable~df_Brandon_review$value)
+
+Brandon_stars = read.csv("Brandon_stars.csv", header = TRUE)
+df_Brandon_stars = melt(Brandon_stars)
+ggplot(df_Brandon_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Brandon_stars$variable~df_Brandon_stars$value)
+```
+
+```{r}
+bartlett.test(value ~ variable,data=df_Brandon_review)
+#p值大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Brandon_review_aov <- oneway.test(value ~ variable,data=df_Brandon_review, var.equal = TRUE)
+df_Brandon_review_aov
+#p值0.3102大于0.05，表示接受Brandon城市中三种种类餐厅的平均评论数相等的原假设，说明Brandon城市中三种种类餐厅的受欢迎程度差不多一致，无需进一步做更详细的两两比较。
+
+bartlett.test(value ~ variable,data=df_Brandon_stars)
+#p值大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Brandon_stars_aov <- oneway.test(value ~ variable,data=df_Brandon_stars, var.equal = TRUE)
+df_Brandon_stars_aov
+#p值3.291e-05小于0.05，表示拒绝Brandon城市中三种种类餐厅的打分情况相等的原假设，说明Brandon城市中三种种类餐厅的评价程度不一致，所以需要进一步做更详细的两两比较。
+df_Brandon_stars_aov2<-aov(value ~ variable,data=df_Brandon_stars)
+TukeyHSD(df_Brandon_stars_aov2,conf.level=.95)
+#X2-X1和X3-X1的p值都很小，表明Brandon城市中中餐厅的评分显著比其他两类餐厅都低，而Brandon城市中的日餐餐厅和东南亚餐厅评分无明显差异。
+```
+Cherry
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Cherry_review = read.csv("Cherry_review.csv", header = TRUE)
+df_Cherry_review = melt(Cherry_review)
+ggplot(df_Cherry_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              # 透明度
+               outlier.color = "black" # 外点颜色
+               )+
+  theme_bw()+                          # 白色主题
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       # x轴刻度改为倾斜90度，防止名称重叠
+  )
+#三个不同种类的餐厅的review横向比较
+plot(df_Cherry_review$variable~df_Cherry_review$value)
+
+Cherry_stars = read.csv("Cherry_stars.csv", header = TRUE)
+df_Cherry_stars = melt(Cherry_stars)
+ggplot(df_Cherry_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Cherry_stars$variable~df_Cherry_stars$value)
+```
+```{r}
+bartlett.test(value ~ variable,data=df_Cherry_review)
+#p值0.1078大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Cherry_review_aov <- oneway.test(value ~ variable,data=df_Cherry_review, var.equal = TRUE)
+df_Cherry_review_aov
+#p值0.1294大于0.05，表示接受Cherry城市中三种种类餐厅的平均评论数相等的原假设，说明Cherry城市中三种种类餐厅的受欢迎程度差不多一致，无需进一步做更详细的两两比较。
+
+bartlett.test(value ~ variable,data=df_Cherry_stars)
+#p值0.1956大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Cherry_stars_aov <- oneway.test(value ~ variable,data=df_Cherry_stars, var.equal = TRUE)
+df_Cherry_stars_aov
+#p值0.01379小于0.05，表示拒绝Cherry城市中三种种类餐厅的打分情况相等的原假设，说明Cherry城市中三种种类餐厅的评价程度不一致，所以需要进一步做更详细的两两比较。
+df_Cherry_stars_aov2<-aov(value ~ variable,data=df_Cherry_stars)
+TukeyHSD(df_Cherry_stars_aov2,conf.level=.95)
+#X2-X1和X3-X1的p值都很小，表明Cherry城市中中餐厅的评分显著比其他两类餐厅都低，而Cherry城市中的日餐餐厅和东南亚餐厅评分无明显差异。
+```
+Clearwater
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Clearwater_review = read.csv("Clearwater_review.csv", header = TRUE)
+df_Clearwater_review = melt(Clearwater_review)
+ggplot(df_Clearwater_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              # 透明度
+               outlier.color = "black" # 外点颜色
+               )+
+  theme_bw()+                          # 白色主题
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       # x轴刻度改为倾斜90度，防止名称重叠
+  )
+#三个不同种类的餐厅的review横向比较
+plot(df_Clearwater_review$variable~df_Clearwater_review$value)
+
+Clearwater_stars = read.csv("Clearwater_stars.csv", header = TRUE)
+df_Clearwater_stars = melt(Clearwater_stars)
+ggplot(df_Clearwater_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Clearwater_stars$variable~df_Clearwater_stars$value)
+```
+```{r}
+bartlett.test(value ~ variable,data=df_Clearwater_review)
+#p值0.5476大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Clearwater_review_aov <- oneway.test(value ~ variable,data=df_Clearwater_review, var.equal = TRUE)
+df_Clearwater_review_aov
+#p值0.4637大于0.05，表示接受Clearwater城市中三种种类餐厅的平均评论数相等的原假设，说明Clearwater城市中三种种类餐厅的受欢迎程度差不多一致，无需进一步做更详细的两两比较。
+
+bartlett.test(value ~ variable,data=df_Clearwater_stars)
+#p值0.1991大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Clearwater_stars_aov <- oneway.test(value ~ variable,data=df_Clearwater_stars, var.equal = TRUE)
+df_Clearwater_stars_aov
+#p值0.000108小于0.05，表示拒绝Clearwater城市中三种种类餐厅的打分情况相等的原假设，说明Clearwater城市中三种种类餐厅的评价程度不一致，所以需要进一步做更详细的两两比较。
+df_Clearwater_stars_aov2<-aov(value ~ variable,data=df_Clearwater_stars)
+TukeyHSD(df_Clearwater_stars_aov2,conf.level=.95)
+#X3-X2和X3-X1的p值都很小，表明Clearwater城市中东南亚餐厅的评分显著比其他两类餐厅都高，而Clearwater城市中的日餐餐厅和中餐厅评分无明显差异。
+```
+Goleta
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Goleta_review = read.csv("Goleta_review.csv", header = TRUE)
+df_Goleta_review = melt(Goleta_review)
+ggplot(df_Goleta_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              # 透明度
+               outlier.color = "black" # 外点颜色
+               )+
+  theme_bw()+                          # 白色主题
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       # x轴刻度改为倾斜90度，防止名称重叠
+  )
+#三个不同种类的餐厅的review横向比较
+plot(df_Goleta_review$variable~df_Goleta_review$value)
+
+Goleta_stars = read.csv("Goleta_stars.csv", header = TRUE)
+df_Goleta_stars = melt(Goleta_stars)
+ggplot(df_Goleta_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Goleta_stars$variable~df_Goleta_stars$value)
+```
+Goleta
+```{r}
+bartlett.test(value ~ variable,data=df_Goleta_review)
+#p值0.2319大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Goleta_review_aov <- oneway.test(value ~ variable,data=df_Goleta_review, var.equal = TRUE)
+df_Goleta_review_aov
+#p值0.2408大于0.05，表示接受Goleta城市中三种种类餐厅的平均评论数相等的原假设，说明Goleta城市中三种种类餐厅的受欢迎程度差不多一致，无需进一步做更详细的两两比较。
+
+bartlett.test(value ~ variable,data=df_Goleta_stars)
+#p值0.09027大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Goleta_stars_aov <- oneway.test(value ~ variable,data=df_Goleta_stars, var.equal = TRUE)
+df_Goleta_stars_aov
+#p值0.9411大于0.05，表示接受Goleta城市中三种种类餐厅的打分情况相等的原假设，说明Goleta城市中三种种类餐厅的评价程度一致，所以无需进一步做更详细的两两比较。
+```
+Louis
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Louis_review = read.csv("Louis_review.csv", header = TRUE)
+df_Louis_review = melt(Louis_review)
+ggplot(df_Louis_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              # 透明度
+               outlier.color = "black" # 外点颜色
+               )+
+  theme_bw()+                          # 白色主题
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       # x轴刻度改为倾斜90度，防止名称重叠
+  )
+#三个不同种类的餐厅的review横向比较
+plot(df_Louis_review$variable~df_Louis_review$value)
+
+Louis_stars = read.csv("Louis_stars.csv", header = TRUE)
+df_Louis_stars = melt(Louis_stars)
+ggplot(df_Louis_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Louis_stars$variable~df_Louis_stars$value)
+```
+
+Louis
+```{r}
+bartlett.test(value ~ variable,data=df_Louis_review)
+#p值4.251e-08小于0.05表示拒绝原假设：各组方差相等的假设，不满足方差齐性，没有通过方差齐性bartlett test，所以用Welch's ANOVA。
+#perform Welch's ANOVA
+df_Louis_review_aov <- oneway.test(value ~ variable,data=df_Louis_review, var.equal = FALSE)
+df_Louis_review_aov
+#p值0.0008179小于0.05，表示拒绝Louis城市中三种种类餐厅的平均评论数相等的原假设，说明Louis城市中三种种类餐厅的受欢迎程度不一致，所以需要进一步做更详细的两两比较。
+df_Louis_review_aov2<-aov(value ~ variable,data=df_Louis_review)
+TukeyHSD(df_Louis_review_aov2,conf.level=.95)
+#X2-X1的p值0.0221422<0.05，X3-X1的p值0.0221422<0.05,都拒绝相等原假设，表示中国餐厅的avg_review和其他两个种类的餐厅显著不一样，而其他两类餐厅日本餐厅和东南亚餐厅没有区别。说明中餐厅avg_review最少、最不受欢迎。
+
+bartlett.test(value ~ variable,data=df_Louis_stars)
+#p值0.6968大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Louis_stars_aov <- oneway.test(value ~ variable,data=df_Louis_stars, var.equal = TRUE)
+df_Louis_stars_aov
+#p值2.021e-05小于0.05，表示拒绝Louis城市中三种种类餐厅的打分情况相等的原假设，说明Louis城市中三种种类餐厅的评价程度不一致，所以需要进一步做更详细的两两比较。
+df_Louis_stars_aov2<-aov(value ~ variable,data=df_Louis_stars)
+TukeyHSD(df_Louis_stars_aov2,conf.level=.95)
+#X2-X1和X3-X1的p值都很小，表明Louis城市中中餐厅的评分显著比其他两类餐厅都低，而Louis城市中的日餐餐厅和东南亚餐厅评分无明显差异。
+```
+Indianapolis
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Indianapolis_review = read.csv("Indianapolis_review.csv", header = TRUE)
+df_Indianapolis_review = melt(Indianapolis_review)
+ggplot(df_Indianapolis_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              # 透明度
+               outlier.color = "black" # 外点颜色
+               )+
+  theme_bw()+                          # 白色主题
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       # x轴刻度改为倾斜90度，防止名称重叠
+  )
+#三个不同种类的餐厅的review横向比较
+plot(df_Indianapolis_review$variable~df_Indianapolis_review$value)
+
+Indianapolis_stars = read.csv("Indianapolis_stars.csv", header = TRUE)
+df_Indianapolis_stars = melt(Indianapolis_stars)
+ggplot(df_Indianapolis_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Indianapolis_stars$variable~df_Indianapolis_stars$value)
+```
+
+Indianapolis
+```{r}
+bartlett.test(value ~ variable,data=df_Indianapolis_review)
+#p-value < 2.2e-16小于0.05表示拒绝原假设：各组方差相等的假设，不满足方差齐性，没有通过方差齐性bartlett test，所以用Welch's ANOVA。
+#perform Welch's ANOVA
+df_Indianapolis_review_aov <- oneway.test(value ~ variable,data=df_Indianapolis_review, var.equal = FALSE)
+df_Indianapolis_review_aov
+#p值3.883e-09小于0.05，表示拒绝Indianapolis城市中三种种类餐厅的平均评论数相等的原假设，说明Indianapolis城市中三种种类餐厅的受欢迎程度不一致，所以需要进一步做更详细的两两比较。
+df_Indianapolis_review_aov2<-aov(value ~ variable,data=df_Indianapolis_review)
+TukeyHSD(df_Indianapolis_review_aov2,conf.level=.95)
+#X2-X1的p值0.0000000<0.05，X3-X1的p值0.0000001<0.05,都拒绝相等原假设，表示中国餐厅的avg_review和其他两个种类的餐厅显著不一样，而其他两类餐厅日本餐厅和东南亚餐厅没有区别。说明中餐厅avg_review最少、最不受欢迎。
+
+bartlett.test(value ~ variable,data=df_Indianapolis_stars)
+#p值0.3504大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Indianapolis_stars_aov <- oneway.test(value ~ variable,data=df_Indianapolis_stars, var.equal = TRUE)
+df_Indianapolis_stars_aov
+#p值4.734e-07小于0.05，表示拒绝Indianapolis城市中三种种类餐厅的打分情况相等的原假设，说明Indianapolis城市中三种种类餐厅的评价程度不一致，所以需要进一步做更详细的两两比较。
+df_Indianapolis_stars_aov2<-aov(value ~ variable,data=df_Indianapolis_stars)
+TukeyHSD(df_Indianapolis_stars_aov2,conf.level=.95)
+#X2-X1和X3-X1的p值都很小，表明Indianapolis城市中中餐厅的评分显著比其他两类餐厅都低，而Indianapolis城市中的日餐餐厅和东南亚餐厅评分无明显差异。
+```
+Metairie
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+Metairie_review = read.csv("Metairie_review.csv", header = TRUE)
+df_Metairie_review = melt(Metairie_review)
+ggplot(df_Metairie_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              # 透明度
+               outlier.color = "black" # 外点颜色
+               )+
+  theme_bw()+                          # 白色主题
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       # x轴刻度改为倾斜90度，防止名称重叠
+  )
+#三个不同种类的餐厅的review横向比较
+plot(df_Metairie_review$variable~df_Metairie_review$value)
+
+Metairie_stars = read.csv("Metairie_stars.csv", header = TRUE)
+df_Metairie_stars = melt(Metairie_stars)
+ggplot(df_Metairie_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Metairie_stars$variable~df_Metairie_stars$value)
+```
+Metairie
+```{r}
+bartlett.test(value ~ variable,data=df_Metairie_review)
+#p-value8.371e-06小于0.05表示拒绝原假设：各组方差相等的假设，不满足方差齐性，没有通过方差齐性bartlett test，所以用Welch's ANOVA。
+#perform Welch's ANOVA
+df_Metairie_review_aov <- oneway.test(value ~ variable,data=df_Metairie_review, var.equal = FALSE)
+df_Metairie_review_aov
+#p值0.0007443小于0.05，表示拒绝Metairie城市中三种种类餐厅的平均评论数相等的原假设，说明Metairie城市中三种种类餐厅的受欢迎程度不一致，所以需要进一步做更详细的两两比较。
+df_Metairie_review_aov2<-aov(value ~ variable,data=df_Metairie_review)
+TukeyHSD(df_Metairie_review_aov2,conf.level=.95)
+#只有X3-X1的p值0.0002652<0.05，拒绝相等原假设，表示只有中国餐厅的avg_review和东南亚餐厅显著不一样，但是东南亚和日本或者中国和日本餐厅没区别。表明中国餐厅较少，东南亚餐厅较多。
+
+bartlett.test(value ~ variable,data=df_Metairie_stars)
+#p值0.05335大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way  student ANOVA。
+df_Metairie_stars_aov <- oneway.test(value ~ variable,data=df_Metairie_stars, var.equal = TRUE)
+df_Metairie_stars_aov
+#p值2.551e-05小于0.05，表示拒绝Metairie城市中三种种类餐厅的打分情况相等的原假设，说明Metairie城市中三种种类餐厅的评价程度不一致，所以需要进一步做更详细的两两比较。
+df_Metairie_stars_aov2<-aov(value ~ variable,data=df_Metairie_stars)
+TukeyHSD(df_Metairie_stars_aov2,conf.level=.95)
+#X2-X1和X3-X1的p值都很小，表明Metairie城市中中餐厅的评分显著比其他两类餐厅都低，而Metairie城市中的日餐餐厅和东南亚餐厅评分无明显差异。
+```
+Nashville
+```{r}
+setwd("/Users/amanda/Desktop/FALL 2022/STAT 628/Group6/ANOVA_city")
+Nashville_review = read.csv("Nashville_review.csv", header = TRUE)
+df_Nashville_review = melt(Nashville_review)
+ggplot(df_Nashville_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              # 透明度
+               outlier.color = "black" # 外点颜色
+               )+
+  theme_bw()+                          # 白色主题
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       # x轴刻度改为倾斜90度，防止名称重叠
+  )
+#三个不同种类的餐厅的review横向比较
+plot(df_Nashville_review$variable~df_Nashville_review$value)
+
+Nashville_stars = read.csv("Nashville_stars.csv", header = TRUE)
+df_Nashville_stars = melt(Nashville_stars)
+ggplot(df_Nashville_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_Nashville_stars$variable~df_Nashville_stars$value)
+```
+Nashville
+```{r}
+bartlett.test(value ~ variable,data=df_Nashville_review)
+#p-value0.03143小于0.05表示拒绝原假设：各组方差相等的假设，不满足方差齐性，没有通过方差齐性bartlett test，所以用Welch's ANOVA。
+#perform Welch's ANOVA
+df_Nashville_review_aov <- oneway.test(value ~ variable,data=df_Nashville_review, var.equal = FALSE)
+df_Nashville_review_aov
+#p值0.004155小于0.05，表示拒绝Nashville城市中三种种类餐厅的平均评论数相等的原假设，说明Nashville城市中三种种类餐厅的受欢迎程度不一致，所以需要进一步做更详细的两两比较。
+df_Nashville_review_aov2<-aov(value ~ variable,data=df_Nashville_review)
+TukeyHSD(df_Nashville_review_aov2,conf.level=.95)
+#只有X3-X1的p值0.0076031<0.05，拒绝相等原假设，表示只有中国餐厅的avg_review和东南亚餐厅显著不一样，但是东南亚和日本或者中国和日本餐厅没区别。表明中国餐厅较少，东南亚餐厅较多。
+
+bartlett.test(value ~ variable,data=df_Nashville_stars)
+#p-value0.01217小于0.05表示拒绝原假设：各组方差相等的假设，不满足方差齐性，没有通过方差齐性bartlett test，所以用Welch's ANOVA。
+#perform Welch's ANOVA
+df_Nashville_stars_aov <- oneway.test(value ~ variable,data=df_Nashville_stars, var.equal = FALSE)
+df_Nashville_stars_aov
+#p值1.757e-07小于0.05，表示拒绝Nashville城市中三种种类餐厅的打分情况相等的原假设，说明Nashville城市中三种种类餐厅的评价程度不一致，所以需要进一步做更详细的两两比较。
+df_Nashville_stars_aov2<-aov(value ~ variable,data=df_Nashville_stars)
+TukeyHSD(df_Nashville_stars_aov2,conf.level=.95)
+#X2-X1和X3-X1的p值都很小，表明Nashville城市中中餐厅的评分显著比其他两类餐厅都低，而Nashville城市中的日餐餐厅和东南亚餐厅评分无明显差异。
+```
+
+New
+```{r}
+setwd("/Users/yujiacheng/Desktop/Stat628_Module3/ANOVA_city")
+New_review = read.csv("New_review.csv", header = TRUE)
+df_New_review = melt(New_review)
+ggplot(df_New_review,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              # 透明度
+               outlier.color = "black" # 外点颜色
+               )+
+  theme_bw()+                          # 白色主题
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       # x轴刻度改为倾斜90度，防止名称重叠
+  )
+#三个不同种类的餐厅的review横向比较
+plot(df_New_review$variable~df_New_review$value)
+
+New_stars = read.csv("New_stars.csv", header = TRUE)
+df_New_stars = melt(New_stars)
+ggplot(df_New_stars,aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 1,              
+               outlier.color = "black" 
+               )+
+  theme_bw()+                          
+  theme(
+    axis.text.x = element_text(angle = 90,
+                               vjust = 0.5
+                               )       
+  )
+plot(df_New_stars$variable~df_New_stars$value)
+```
+
+New
+```{r}
+bartlett.test(value ~ variable,data=df_New_review)
+#p-value0.0003631小于0.05表示拒绝原假设：各组方差相等的假设，不满足方差齐性，没有通过方差齐性bartlett test，所以用Welch's ANOVA。
+#perform Welch's ANOVA
+df_New_review_aov <- oneway.test(value ~ variable,data=df_New_review, var.equal = FALSE)
+df_New_review_aov
+#p值0.0004998小于0.05，表示拒绝New城市中三种种类餐厅的平均评论数相等的原假设，说明New城市中三种种类餐厅的受欢迎程度不一致，所以需要进一步做更详细的两两比较。
+df_New_review_aov2<-aov(value ~ variable,data=df_New_review)
+TukeyHSD(df_New_review_aov2,conf.level=.95)
+#只有X2-X1的p值0.0033407<0.05，拒绝相等原假设，表示只有中国餐厅的avg_review和日本餐厅显著不一样，但是东南亚和日本或者中国和东南亚餐厅没区别。表明中国餐厅较少，日本餐厅较多。
+
+bartlett.test(value ~ variable,data=df_New_stars)
+#p值0.4592大于0.05表示接受原假设：各组方差相等的假设，满足方差齐性，通过方差齐性bartlett test，所以用one way student ANOVA。
+df_New_stars_aov <- oneway.test(value ~ variable,data=df_New_stars, var.equal = TRUE)
+df_New_stars_aov
+#p值5.968e-05小于0.05，表示拒绝New城市中三种种类餐厅的打分情况相等的原假设，说明New城市中三种种类餐厅的评价程度不一致，所以需要进一步做更详细的两两比较。
+df_New_stars_aov2<-aov(value ~ variable,data=df_New_stars)
+TukeyHSD(df_New_stars_aov2,conf.level=.95)
+#X2-X1和X3-X1的p值都很小，表明New城市中中餐厅的评分显著比其他两类餐厅都低，而New城市中的日餐餐厅和东南亚餐厅评分无明显差异。
+```

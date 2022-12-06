@@ -1,0 +1,60 @@
+rm(list=ls())
+
+require("FITSio")
+
+# Load cB58 fit
+dfcB58 = readFrameFromFITS("cB58_Lyman_break.fit")
+
+listcB58 = dfcB58[,c('FLUX')]
+
+movingAvg  <- function(x){
+    movingAvgData  <- list()
+    for (i in (1:length(x)-7)){
+        AvgData  <- (x[i]+x[i+1]+x[i+2]+x[i+3]+x[i+4]+x[i+5]+x[i+6])/7
+        movingAvgData  <- append(movingAvgData,AvgData)
+    }
+    return(unlist(movingAvgData))
+}
+
+standardize  <-  function(x){
+    z <- (x-mean(x))/sd(x)
+    return(z)
+}
+
+listcB58Avg = movingAvg(listcB58)
+listcB58_std = standardize(listcB58Avg)
+listcB58Len = length(listcB58_std)
+
+euclidian <-function(a,b) sqrt(sum((a-b)^2))
+           
+l  <-  list()
+
+totalFits= list.files('data')
+leastDisList  <- list()
+
+for (f in totalFits){
+    l  <-  list()
+    filepath = paste(sep='','data/',f)
+    currFitsAll = readFrameFromFITS(filepath)
+    listCurrFit = currFitsAll[,c('flux')]
+    listVector = movingAvg(listCurrFit)
+    for( i in 1:(length(listVector)-listcB58Len+1)){
+        listVector_std = standardize(listVector[i:(i+listcB58Len-1)])
+        e_d = euclidian(listcB58_std,listVector_std)
+        l  <- append(l,e_d)
+    }
+    leastIndex  <-  which.min(l)
+    leastDisList$num  <- append(leastDisList$num,min(unlist(l)))
+    leastDisList$path  <- append(leastDisList$path,f)
+    leastDisList$redshift  <- append(leastDisList$redshift,leastIndex)
+    
+    
+}
+df = data.frame(num=leastDisList$num,path=leastDisList$path,redshift=leastDisList$redshift)
+new_df = df[order(df$num),]
+
+
+write.table(new_df,file='hw2.csv',sep = ',',row.names=FALSE,col.names=FALSE)
+#print(leastDisList[order(leastDisList$num)])
+
+

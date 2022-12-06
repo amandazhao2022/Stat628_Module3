@@ -1,0 +1,2 @@
+"0","#三个不同种类的餐厅的review横向比较"
+"0","plot(df_Boise_review$variable~df_Boise_review$value)"

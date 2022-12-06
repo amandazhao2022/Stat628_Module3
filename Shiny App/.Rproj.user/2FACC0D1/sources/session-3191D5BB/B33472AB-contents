@@ -1,0 +1,185 @@
+library(leaflet)
+library(raster)
+
+library(maps)
+library(dplyr)
+
+adm <- getData('GADM', country='USA', level=1)
+
+adm$NAME_2=='Tampa'
+
+wd <- adm[adm$NAME_1 == 'Wisconsin',]
+
+head(wd)
+head(wd,50)
+adm
+
+map.cities(us.cities, country="NJ")
+map("state", "New Jersey")
+
+data(us.cities)
+
+library(usmap)
+library(ggplot2)
+
+plot_usmap(
+  data = statepop, values = "pop_2015", include = c("CA", "ID", "NV", "OR", "WA"), color = "red"
+) + 
+  scale_fill_continuous(
+    low = "white", high = "red", name = "Population (2015)", label = scales::comma
+  ) + 
+  labs(title = "Western US States", subtitle = "These are the states in the Pacific Timezone.") +
+  theme(legend.position = "right")
+
+
+
+us.cities[us.cities$country.etc == 'WI',]
+
+library(ggmap)
+
+us.cities$country.etc
+
+
+us.cities[us.cities$name == 'Tempe AZ',]$long
+
+us.cities$name
+
+
+setwd("/Users/amanda/Desktop/FALL 2022/STAT 628/Group6/ANOVA_city")
+file_list <- list.files()
+file_list[1]
+#file_str <- 
+  
+strsplit(file_list[1],split='.', fixed=TRUE)[[1]][1]
+assign("filename", read_csv(file_list[1]))
+filename
+
+
+file_list <- list.files()
+for (i in file_list){
+  file_str <- strsplit(i,split='_', fixed=TRUE)[[1]][1]
+  read_csv(paste('ANOVA_city/',i,sep=''))
+}
+
+
+
+file_str <- strsplit(file_list[1],split='.', fixed=TRUE)[[1]][1]
+file_str
+assign(file_str, read_csv(file_list[1]))
+Bar_review
+melt(Bar_review)
+
+str1 = "Boi_review"
+paste('df_',str1,sep='')
+
+file_list <- list.files('ANOVA_city')
+file_list
+
+as.data.frame(us.cities)
+
+write.csv(us.cities,"uscities.csv")
+
+restau_all<-read.csv("data_asian_all.csv")
+restau_all
+city_group<-group_by(restau_all,city)
+city_group
+city_restau<-summarise(city_group,
+                       restau_count = n(),                   #一共几家餐厅
+                       review_max = max(review_count),       #这个城市中餐厅评价数的最大值
+                       review_min = min(review_count),       #这个城市中餐厅评价数的最小值
+                       review_avg = mean(review_count),      #这个城市所有餐厅的评价数平均
+                       review_sum = sum(review_count))       #这个城市所有餐厅的评价数总和
+city_restau_order<-arrange(city_restau,desc(review_sum))
+city_restau_order
+filter_city<-c("Philadelphia","Southwest Philadelphia",
+               "Tampa","Tampa Bay","South Tampa",
+               "Reno",
+               "Tucson",
+               "Indianapolis",
+               "Nashville",
+               "New Orleans",
+               "Saint Louis","East Saint Louis","St Louis","St Louis County","St. Louis",
+               "Santa Barbara",
+               "Boise",
+               "Clearwater","Clearwater Beach",
+               "Metairie",
+               "Goleta",
+               "Cherry Hill",
+               "Pinellas Park",
+               "Brandon",
+               "Wilmington",
+               "Sparks",
+               "Saint Petersburg","St Petersburg","St. Petersburg",
+               "Riverview")
+restau_all <- restau_all%>%
+  filter(city %in% filter_city)%>%group_by(city)
+restau_all$city
+write.csv(restau_all,"restau_all.csv")
+
+
+restaurant_attr <- read_csv("restau_all.csv")
+us_cities <- read_csv("uscities_cleaned.csv")
+us_cities$name
+positions=us_cities$name
+ggplot(data = restaurant_attr, aes(x = restaurant_attr$city,fill = restaurant_attr$type)) +geom_bar(stat = "identity")+coord_flip()+
+  scale_fill_brewer(palette="Set2")+scale_x_discrete(limits = positions)
+
+
+ggplot(restaurant_attr,aes(x = fct_rev(fct_infreq(restaurant_attr$city)),fill = restaurant_attr$type)) + scale_fill_brewer(palette="Set2")+
+  geom_bar(stat = 'count')+coord_flip()
+
+
+plt <- ggplot(data = restaurant_attr,fill = restaurant_attr$type) +
+  geom_col(aes(x = restaurant_attr$city), width = 0.6) +  scale_fill_brewer(palette="YlGnBu")
+
+plt
+
+
+file_list <- list.files('ANOVA_city')
+for (i in file_list){
+  file_str <- strsplit(i,split='.csv', fixed=TRUE)[[1]][1]
+  file_str_df <- paste('df_',file_str,sep='')
+  assign(file_str_df, melt(read_csv(paste('ANOVA_city/',i,sep=''))))
+}
+
+
+
+paste('df_','file_str','_review',sep='')
+
+file_str <- paste('Brandon','_review','.csv',sep='')
+file_str
+assign(file_str_df, melt(read_csv(paste('ANOVA_city/',file_str,sep=''))))
+
+read_csv(paste('ANOVA_city/',file_str,sep=''))
+file_str_df
+assign(file_str_df, melt(read_csv(paste('ANOVA_city/',file_str,sep=''))))
+
+df_Boise_review
+
+av <- read_csv("uscities_cleaned.csv")
+
+av$review_rec
+
+av[av$name == 'Brandon',]
+
+a <- get(file_str_df)
+
+
+# Category <- restaurant_attr$type
+# City <- fct_rev(fct_infreq(restaurant_attr$city))
+# ggplotly(ggplot(restaurant_attr,aes(x = City,fill = Category)) + 
+
+restaurant_attr <- read_csv("restau_all.csv")
+Category <- restaurant_attr$type
+City <- fct_rev(fct_infreq(restaurant_attr$city))
+a2 <- restaurant_attr[restaurant_attr$city == 'Brandon',]
+a2
+ggplot(data=a2, aes(x=stars,group=type, fill=type)) +
+  geom_density(alpha=0.8)+scale_fill_brewer(palette="Set2")
+
+
+
+
+
+
+

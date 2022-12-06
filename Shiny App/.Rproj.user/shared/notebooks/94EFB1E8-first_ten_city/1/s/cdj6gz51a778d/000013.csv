@@ -1,0 +1,60 @@
+"0","library(dplyr)"
+"0","library(knitr)"
+"0","library(tidyverse)"
+"0","library(tsibble)"
+"0","library(lubridate)"
+"0","#library(sf)"
+"0","library(tmap)"
+"0","library(terra)"
+"2","terra 1.6.41
+"
+"2","
+Attaching package: ‘terra’
+
+"
+"2","The following object is masked from ‘package:knitr’:
+
+    spin
+
+"
+"2","The following object is masked from ‘package:tidyr’:
+
+    extract
+
+"
+"0","library(ceramic)"
+"0","library(tsibble)"
+"0","library(tsibbledata)"
+"0","library(ggHoriPlot)"
+"0","library(ggstream)"
+"0","library(colorspace)"
+"2","
+Attaching package: ‘colorspace’
+
+"
+"2","The following object is masked from ‘package:terra’:
+
+    RGB
+
+"
+"0","library(ggalluvial)"
+"0","library(scales)"
+"2","
+Attaching package: ‘scales’
+
+"
+"2","The following object is masked from ‘package:terra’:
+
+    rescale
+
+"
+"2","The following object is masked from ‘package:purrr’:
+
+    discard
+
+"
+"2","The following object is masked from ‘package:readr’:
+
+    col_factor
+
+"
